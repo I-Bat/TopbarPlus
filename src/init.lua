@@ -1067,33 +1067,6 @@ function Icon:setDropdown(arrayOfIcons)
 	return self
 end
 
-function Icon:setDropdownAlign(leftCenterOrRight)
-	-- Changes Dropdown Positions: Right = lower right corner, Left = lower left corner, Center = middle of the icon (Default)
-	local direction = tostring(leftCenterOrRight):lower()
-	if direction == "mid" or direction == "centre" then
-		direction = "center"
-	end
-	if direction ~= "left" and direction ~= "center" and direction ~= "right" then
-		direction = "left"
-	end
-	
-	if direction == "left" and self.alignment ~= "Right" then
-		self:modifyTheme({
-			{"Dropdown", "AnchorPoint", Vector2.new(0,0)},
-			{"Dropdown", "Position", UDim2.new(0,0,1,7)},
-			
-		})
-	elseif direction == "right" and self.alignment ~= "Right" then
-		self:modifyTheme({
-			{"Dropdown", "AnchorPoint", Vector2.new(0.5,0)},
-			{"Dropdown", "Position", UDim2.new(1,0,1,7)},
-			
-		})
-	end
-	
-	return self
-end
-
 function Icon:clipOutside(instance)
 	-- This is essential for items such as notices and dropdowns which will exceed the bounds of the widget. This is an issue
 	-- because the widget must have ClipsDescendents enabled to hide items for instance when the menu is closing or opening.
