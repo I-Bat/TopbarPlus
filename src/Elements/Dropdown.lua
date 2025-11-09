@@ -3,6 +3,7 @@ local RunService = game:GetService("RunService")
 local Themes = require(script.Parent.Parent.Features.Themes)
 local PADDING = 0 -- used to be 8
 return function(icon)
+
 	local dropdown = Instance.new("Frame") -- Instance.new("CanvasGroup")
 	dropdown.Name = "Dropdown"
 	dropdown.AnchorPoint = Vector2.new(0.5, 0)
@@ -61,11 +62,6 @@ return function(icon)
 	TweenDuration.Value = 0.07
 	TweenDuration.Parent = dropdown
 
-	local dropdownAlignment = Instance.new("StringValue")
-	dropdownAlignment.Name = "DropdownAlignment"
-	dropdownAlignment.Value = "center"
-	dropdownAlignment.Parent = dropdown
-
 	local dropdownPadding = Instance.new("UIPadding")
 	dropdownPadding.Name = "DropdownPadding"
 	dropdownPadding.PaddingTop = UDim.new(0, PADDING)
@@ -113,7 +109,7 @@ return function(icon)
 			end
 		end
 	end)
-	
+
 	local function updateMaxIcons()
 		--icon:modifyTheme({"Dropdown", "Visible", icon.isSelected})
 		local maxIcons = dropdown:GetAttribute("MaxIcons")
@@ -305,7 +301,6 @@ return function(icon)
 		totalHeight += dropdownPadding.PaddingTop.Offset + dropdownPadding.PaddingBottom.Offset
 
 		dropdownScroller.Size = UDim2.fromOffset(0, totalHeight)
-
 	end
 
 	dropdownJanitor:add(dropdownScroller:GetPropertyChangedSignal("AbsoluteCanvasSize"):Connect(updateMaxIconsListener))
@@ -316,6 +311,8 @@ return function(icon)
 	dropdownJanitor:add(dropdown:GetAttributeChangedSignal("MaxIcons"):Connect(updateChildSize))
 	dropdownJanitor:add(icon.childThemeModified:Connect(updateMaxIconsListener))
 	updateMaxIconsListener()
+
+
 
 	-- Ensures each child listens to visibility changes
 	local function connectVisibilityListeners(child)
