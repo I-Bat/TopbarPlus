@@ -1,15 +1,15 @@
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
+local Themes = require(script.Parent.Parent.Features.Themes)
 local PADDING = 0 -- used to be 8
 return function(icon)
-	
 	local dropdown = Instance.new("Frame") -- Instance.new("CanvasGroup")
 	dropdown.Name = "Dropdown"
+	dropdown.AnchorPoint = Vector2.new(0.5, 0)
+	dropdown.Position = UDim2.new(0.5,0,1,7)
 	dropdown.AutomaticSize = Enum.AutomaticSize.X
 	dropdown.BackgroundTransparency = 1
 	dropdown.BorderSizePixel = 0
-	dropdown.AnchorPoint = Vector2.new(0.5, 0)
-	dropdown.Position = UDim2.new(0.5, 0, 1, 10)
 	dropdown.ZIndex = -2
 	dropdown.ClipsDescendants = true
 	dropdown.Parent = icon.widget
@@ -58,8 +58,13 @@ return function(icon)
 
 	local TweenDuration = Instance.new("NumberValue") -- this helps to change the speed to open / close in modifyTheme()
 	TweenDuration.Name = "DropdownSpeed"
-	TweenDuration.Value = 0.35
+	TweenDuration.Value = 0.07
 	TweenDuration.Parent = dropdown
+
+	local dropdownAlignment = Instance.new("StringValue")
+	dropdownAlignment.Name = "DropdownAlignment"
+	dropdownAlignment.Value = "center"
+	dropdownAlignment.Parent = dropdown
 
 	local dropdownPadding = Instance.new("UIPadding")
 	dropdownPadding.Name = "DropdownPadding"
@@ -108,20 +113,11 @@ return function(icon)
 			end
 		end
 	end)
-
-	-- Update visibiliy of dropdown using tween transition
-	local Utility = require(script.Parent.Parent.Utility)
-
-	local tweenInfo = TweenInfo.new(TweenDuration.Value, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-	local openTween = nil
-	local closeTween = nil
-
+	
 	local function updateMaxIcons()
 		--icon:modifyTheme({"Dropdown", "Visible", icon.isSelected})
 		local maxIcons = dropdown:GetAttribute("MaxIcons")
 		if not maxIcons then return 0 end
-
-		local fillDir = dropdownList.FillDirection
 		local children = {}
 		for _, child in pairs(dropdownScroller:GetChildren()) do
 			if child:IsA("GuiObject") and child.Visible then
@@ -130,6 +126,8 @@ return function(icon)
 		end
 
 		table.sort(children, function(a, b) return a.AbsolutePosition.Y < b.AbsolutePosition.Y end)
+
+		-- Calculate total height based on MaxIcons
 		local totalHeight = 0
 		local maxIconsRoundedUp = math.ceil(maxIcons)
 		for i = 1, maxIconsRoundedUp do
@@ -142,11 +140,44 @@ return function(icon)
 			end
 			totalHeight += height
 		end
+
+		-- FIX: Include UIListLayout padding in height calculation
+		-- Previously, the dropdown height didn't account for spacing between icons
+		-- causing a slight visual mismatch when MaxIcons was set
+		local listPadding = dropdownList.Padding.Offset
+		local visibleIconCount = math.min(maxIconsRoundedUp, #children)
+		if visibleIconCount > 1 then
+			totalHeight += listPadding * (visibleIconCount - 1)
+		end
+
+		-- Add container padding
 		totalHeight += dropdownPadding.PaddingTop.Offset + dropdownPadding.PaddingBottom.Offset
 		return totalHeight
 	end
-	
+
+
+	local openTween = nil
+	local closeTween = nil
+	local currentSpeedMultiplier = nil
+	local currentTweenInfo = nil
+	local function getTweenInfo()
+		local speedMultiplier = Themes.getInstanceValue(dropdown, "MaxIcons") or 1
+		if currentSpeedMultiplier and currentSpeedMultiplier == speedMultiplier and currentTweenInfo then
+			return currentTweenInfo
+		end
+		local newTweenInfo = TweenInfo.new(
+			TweenDuration.Value * speedMultiplier,
+			Enum.EasingStyle.Exponential,
+			Enum.EasingDirection.Out
+		)
+		currentTweenInfo = newTweenInfo
+		currentSpeedMultiplier = speedMultiplier
+		return newTweenInfo
+	end
 	local function updateVisibility()
+		-- Update visibiliy of dropdown using tween transition
+		local tweenInfo = getTweenInfo()
+
 		if openTween then
 			openTween:Cancel()
 			openTween = nil
@@ -168,7 +199,8 @@ return function(icon)
 				openTween = nil
 			end)
 		else
-			closeTween = TweenService:Create(dropdown, tweenInfo, {Size = UDim2.new(0, dropdown.Size.X.Offset, 0, 0)})
+			local closeTweenInfo = TweenInfo.new(0)
+			closeTween = TweenService:Create(dropdown, closeTweenInfo, {Size = UDim2.new(0, dropdown.Size.X.Offset, 0, 0)})
 			closeTween:Play()
 			closeTween.Completed:Connect(function()
 				closeTween = nil
@@ -181,6 +213,7 @@ return function(icon)
 	--task.delay(0.2, updateVisibility)
 
 	local function updateChildSize()
+		local tweenInfo = getTweenInfo()
 		if not icon.isSelected then return end
 		if openTween then
 			openTween:Cancel()
@@ -190,9 +223,9 @@ return function(icon)
 			closeTween:Cancel()
 			closeTween = nil
 		end
-		
+
 		RunService.Heartbeat:Wait()
-		
+
 		local height = updateMaxIcons()
 
 		openTween = TweenService:Create(dropdown, tweenInfo, {Size = UDim2.new(0, dropdown.Size.X.Offset, 0, height)})
@@ -226,7 +259,7 @@ return function(icon)
 
 		local orderedInstances = {}
 		for _, child in pairs(dropdownScroller:GetChildren()) do
-			if child:IsA("GuiObject") then
+			if child:IsA("GuiObject") and child.Visible then
 				table.insert(orderedInstances, {child, child.AbsolutePosition.Y})
 			end
 		end
@@ -259,6 +292,16 @@ return function(icon)
 				childIcon:getInstance("ClickRegion").NextSelectionUp = nextSelection
 			end
 		end
+
+		-- FIX: Include UIListLayout padding in height calculation
+		-- Previously, the dropdown height didn't account for spacing between icons
+		-- causing a slight visual mismatch when MaxIcons was set
+		local listPadding = dropdownList.Padding.Offset
+		local visibleIconCount = math.min(maxIconsRoundedUp, #orderedInstances)
+		if visibleIconCount > 1 then
+			totalHeight += listPadding * (visibleIconCount - 1)
+		end
+
 		totalHeight += dropdownPadding.PaddingTop.Offset + dropdownPadding.PaddingBottom.Offset
 
 		dropdownScroller.Size = UDim2.fromOffset(0, totalHeight)
@@ -281,7 +324,7 @@ return function(icon)
 			child:GetPropertyChangedSignal("Size"):Connect(updateChildSize) -- -- update max icons when child size changes
 		end
 	end
-	
+
 	-- For existing children
 	for _, child in pairs(dropdownScroller:GetChildren()) do
 		connectVisibilityListeners(child)
