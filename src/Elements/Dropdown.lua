@@ -3,14 +3,14 @@ local RunService = game:GetService("RunService")
 local Themes = require(script.Parent.Parent.Features.Themes)
 local PADDING = 0 -- used to be 8
 return function(icon)
-
+	
 	local dropdown = Instance.new("Frame") -- Instance.new("CanvasGroup")
 	dropdown.Name = "Dropdown"
-	dropdown.AnchorPoint = Vector2.new(0.5, 0)
-	dropdown.Position = UDim2.new(0.5,0,1,7)
 	dropdown.AutomaticSize = Enum.AutomaticSize.X
 	dropdown.BackgroundTransparency = 1
 	dropdown.BorderSizePixel = 0
+	dropdown.AnchorPoint = Vector2.new(0.5, 0)
+	dropdown.Position = UDim2.new(0.5, 0, 1, 10)
 	dropdown.ZIndex = -2
 	dropdown.ClipsDescendants = true
 	dropdown.Parent = icon.widget
@@ -122,8 +122,6 @@ return function(icon)
 		end
 
 		table.sort(children, function(a, b) return a.AbsolutePosition.Y < b.AbsolutePosition.Y end)
-
-		-- Calculate total height based on MaxIcons
 		local totalHeight = 0
 		local maxIconsRoundedUp = math.ceil(maxIcons)
 		for i = 1, maxIconsRoundedUp do
@@ -136,7 +134,6 @@ return function(icon)
 			end
 			totalHeight += height
 		end
-
 		-- FIX: Include UIListLayout padding in height calculation
 		-- Previously, the dropdown height didn't account for spacing between icons
 		-- causing a slight visual mismatch when MaxIcons was set
@@ -150,8 +147,7 @@ return function(icon)
 		totalHeight += dropdownPadding.PaddingTop.Offset + dropdownPadding.PaddingBottom.Offset
 		return totalHeight
 	end
-
-
+	
 	local openTween = nil
 	local closeTween = nil
 	local currentSpeedMultiplier = nil
@@ -173,7 +169,7 @@ return function(icon)
 	local function updateVisibility()
 		-- Update visibiliy of dropdown using tween transition
 		local tweenInfo = getTweenInfo()
-
+		
 		if openTween then
 			openTween:Cancel()
 			openTween = nil
@@ -219,9 +215,9 @@ return function(icon)
 			closeTween:Cancel()
 			closeTween = nil
 		end
-
+		
 		RunService.Heartbeat:Wait()
-
+		
 		local height = updateMaxIcons()
 
 		openTween = TweenService:Create(dropdown, tweenInfo, {Size = UDim2.new(0, dropdown.Size.X.Offset, 0, height)})
@@ -288,7 +284,6 @@ return function(icon)
 				childIcon:getInstance("ClickRegion").NextSelectionUp = nextSelection
 			end
 		end
-
 		-- FIX: Include UIListLayout padding in height calculation
 		-- Previously, the dropdown height didn't account for spacing between icons
 		-- causing a slight visual mismatch when MaxIcons was set
@@ -297,9 +292,7 @@ return function(icon)
 		if visibleIconCount > 1 then
 			totalHeight += listPadding * (visibleIconCount - 1)
 		end
-
 		totalHeight += dropdownPadding.PaddingTop.Offset + dropdownPadding.PaddingBottom.Offset
-
 		dropdownScroller.Size = UDim2.fromOffset(0, totalHeight)
 	end
 
@@ -312,8 +305,6 @@ return function(icon)
 	dropdownJanitor:add(icon.childThemeModified:Connect(updateMaxIconsListener))
 	updateMaxIconsListener()
 
-
-
 	-- Ensures each child listens to visibility changes
 	local function connectVisibilityListeners(child)
 		if child:IsA("GuiObject") then
@@ -321,7 +312,7 @@ return function(icon)
 			child:GetPropertyChangedSignal("Size"):Connect(updateChildSize) -- -- update max icons when child size changes
 		end
 	end
-
+	
 	-- For existing children
 	for _, child in pairs(dropdownScroller:GetChildren()) do
 		connectVisibilityListeners(child)
