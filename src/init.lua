@@ -926,7 +926,6 @@ function Icon:bindSignal(signal, signalFunction)
 end
 
 function Icon:unbindSignal(signal)
-	print(tostring(signal))
 	local connection = self.bindSignalEvents[signal]
 	if connection then
 		connection:Disconnect()
