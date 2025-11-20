@@ -117,6 +117,7 @@ return function(Icon)
 		holdersCenter.Size = UDim2.new(1, 0, 0, GuiService.TopbarInset.Height+ySizeOffset)
 	end
 	screenGuiCenter.Name = "TopbarCentered"
+	screenGuiCenter.DisplayOrder = Icon.baseDisplayOrder
 	screenGuiCenter.ScreenInsets = Enum.ScreenInsets.TopbarSafeInsets
 	Icon.baseDisplayOrderChanged:Connect(function()
 		screenGuiCenter.DisplayOrder = Icon.baseDisplayOrder
