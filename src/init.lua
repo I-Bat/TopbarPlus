@@ -83,6 +83,11 @@ local iconsDict = {}
 local anyIconSelected = Signal.new()
 local elements = iconModule.Elements
 local totalCreatedIcons = 0
+local preferredInput = {
+	mobile = Enum.PreferredInput.Touch,
+	desktop = Enum.PreferredInput.KeyboardAndMouse,
+	console = Enum.PreferredInput.Gamepad
+}
 
 
 
@@ -266,39 +271,44 @@ function Icon.new()
 
 	-- Button Clicked (for states "Selected" and "Deselected")
 	local clickRegion = self:getInstance("ClickRegion")
+	local hasUsedMouseButton1Click = false
+	local lastToggleTime = 0
+	local DEBOUNCE_TIME = 0.1 -- 100ms debounce to prevent rapid toggles
+
 	local function handleToggle()
 		if self.locked then
 			return
 		end
+
+		-- Debounce logic to prevent rapid toggling
+		local currentTime = tick()
+		if currentTime - lastToggleTime < DEBOUNCE_TIME then
+			return
+		end
+		lastToggleTime = currentTime
+
 		if self.isSelected then
 			self:deselect("User", self)
 		else
 			self:select("User", self)
 		end
 	end
-	local isTouchTapping = false
-	local isClicking = false
+
 	clickRegion.MouseButton1Click:Connect(function()
-		if isTouchTapping then
-			return
-		end
-		isClicking = true
-		task.delay(0.01, function()
-			isClicking = false
-		end)
+		hasUsedMouseButton1Click = true
 		handleToggle()
 	end)
+
 	clickRegion.TouchTap:Connect(function()
 		-- This resolves the bug report by @28Pixels:
 		-- https://devforum.roblox.com/t/topbarplus/1017485/1104
-		if isClicking then
-			return
+		-- Only use TouchTap if MouseButton1Click has never fired
+		-- This handles edge cases where ONLY TouchTap works
+		-- Also prevents double-toggle bug with multi-touch on mobile
+		-- Credit to @sayer80 for this fix
+		if not hasUsedMouseButton1Click then
+			handleToggle()
 		end
-		isTouchTapping = true
-		task.delay(0.01, function()
-			isTouchTapping = false
-		end)
-		handleToggle()
 	end)
 
 	-- Keys can be bound to toggle between Selected and Deselected
@@ -338,7 +348,7 @@ function Icon.new()
 		end
 	end)
 	clickRegion.MouseEnter:Connect(function()
-		local dontSetState = not UserInputService.KeyboardEnabled
+		local dontSetState = UserInputService.PreferredInput ~= preferredInput.desktop
 		viewingStarted(dontSetState)
 	end)
 	local touchCount = 0
@@ -347,7 +357,7 @@ function Icon.new()
 	clickRegion.SelectionGained:Connect(viewingStarted)
 	clickRegion.SelectionLost:Connect(viewingEnded)
 	clickRegion.MouseButton1Down:Connect(function()
-		if not self.locked and UserInputService.TouchEnabled then
+		if not self.locked and UserInputService.PreferredInput == preferredInput.mobile then
 			touchCount += 1
 			local myTouchCount = touchCount
 			task.delay(0.2, function()
@@ -396,6 +406,7 @@ function Icon.new()
 		end
 	end
 	if origin and originsScreenGui and originsScreenGui.ResetOnSpawn == true then
+		self.originsScreenGui = originsScreenGui
 		Utility.localPlayerRespawned(function()
 			self:destroy()
 		end)
@@ -1051,10 +1062,11 @@ function Icon:setMenu(arrayOfIcons)
 	return self
 end
 
-function Icon:setFrozenMenu(arrayOfIcons)
+function Icon:setFixedMenu(arrayOfIcons)
 	self:freezeMenu(arrayOfIcons)
 	self:setMenu(arrayOfIcons)
 end
+Icon.setFrozenMenu = Icon.setFixedMenu
 
 function Icon:freezeMenu()
 	-- A frozen menu is a menu which is permanently locked in the
@@ -1112,122 +1124,130 @@ function Icon:setIndicator(keyCode)
 	self.indicatorSet:Fire(keyCode)
 end
 
-function Icon:convertLabelToNumberSpinner(numberSpinner)
-	local label = self:getInstance("IconLabel")
-	label.Transparency = 1
-	numberSpinner.Parent = label.Parent
-	numberSpinner.Size = UDim2.fromScale(1, 1)
-	numberSpinner.AnchorPoint = Vector2.new(0.5, 0.5)
-	numberSpinner.Position = UDim2.new(0.5, 0, 0.5, 0)
-	numberSpinner.TextXAlignment = Enum.TextXAlignment.Center
-	numberSpinner.ClipsDescendants = false
+function Icon:convertLabelToNumberSpinner(numberSpinner, callback)
+	task.defer(function()
+		
+		local label = self:getInstance("IconLabel")
+		label.Transparency = 1
+		numberSpinner.Parent = label.Parent
+		numberSpinner.Size = UDim2.fromScale(1, 1)
+		numberSpinner.AnchorPoint = Vector2.new(0.5, 0.5)
+		numberSpinner.Position = UDim2.new(0.5, 0, 0.5, 0)
+		numberSpinner.TextXAlignment = Enum.TextXAlignment.Center
+		numberSpinner.ClipsDescendants = false
 
-	local propertiesToChangeLabel = {
-		"FontFace",
-		"BorderSizePixel",
-		"BorderColor3",
-		"Rotation",
-		"TextStrokeTransparency",
-		"TextStrokeColor3",
-		"TextStrokeTransparency",
-		"TextColor3",
-	}
-	for _, property in ipairs(propertiesToChangeLabel) do
-		numberSpinner[property] = label[property]
-		self:addToJanitor(label:GetPropertyChangedSignal(property):Connect(function()
+		local propertiesToChangeLabel = {
+			"FontFace",
+			"BorderSizePixel",
+			"BorderColor3",
+			"Rotation",
+			"TextStrokeTransparency",
+			"TextStrokeColor3",
+			"TextStrokeTransparency",
+			"TextColor3",
+		}
+		for _, property in ipairs(propertiesToChangeLabel) do
 			numberSpinner[property] = label[property]
-		end))
-	end
+			self:addToJanitor(label:GetPropertyChangedSignal(property):Connect(function()
+				numberSpinner[property] = label[property]
+			end))
+		end
 
-	local minDigits = 0
-	local maxDigits = 8
-	local function getSpinnerSizeAndDigitCount()
-		local TotalSize = 0
-		local numOfDigits = 0
-		for i, child in numberSpinner.Frame:GetChildren() do
-			local name = string.lower(child.Name)
-			if name == "digit" then
-				TotalSize += child.AbsoluteSize.X
-				numOfDigits += 1
-			elseif name == "prefix" or name == "suffix" or name == "comma" then
-				if child.Text ~= "" then
+		local minDigits = 0
+		local maxDigits = 8
+		local function getSpinnerSizeAndDigitCount()
+			local TotalSize = 0
+			local numOfDigits = 0
+			for i, child in numberSpinner.Frame:GetChildren() do
+				local name = string.lower(child.Name)
+				if name == "digit" then
 					TotalSize += child.AbsoluteSize.X
 					numOfDigits += 1
+				elseif name == "prefix" or name == "suffix" or name == "comma" then
+					if child.Text ~= "" then
+						TotalSize += child.AbsoluteSize.X
+						numOfDigits += 1
+					end
 				end
 			end
+			return TotalSize, numOfDigits
 		end
-		return TotalSize, numOfDigits
-	end
-
-	local function getLabelParentContainerXSize()
-		local nextParent = label.Parent.Parent
-		if nextParent == nil then
-			return 0
-		end
-		if nextParent.IconImage.Visible == true then
-			return numberSpinner.Frame.AbsoluteSize.X + label.Parent.Parent.IconImage.AbsoluteSize.X
-		else
-			return nextParent.AbsoluteSize.X
-		end
-	end
-	local function getNumberSpinnerXSize()
-		return numberSpinner.Frame.AbsoluteSize.X
-	end
-
-	local function adjustSize()
-		local totalDigitXSize, numOfDigits = getSpinnerSizeAndDigitCount()
-		if numOfDigits < 18 then
-			self:setLabel(numberSpinner.Value)
-		end
-
-		local NumberSpinnerXSize = getNumberSpinnerXSize()
-
-		while totalDigitXSize < NumberSpinnerXSize and self.isDestroyed ~= true do
-			task.wait(0.05)
-			if numOfDigits > minDigits and numOfDigits < maxDigits then
-				numberSpinner.TextSize = label.TextSize
-				break
+		
+		local function getLabelParentContainerXSize()
+			local firstParent = label.Parent
+			local nextParent = firstParent and firstParent.Parent
+			if nextParent == nil then
+				return 0
+			end
+			if nextParent.IconImage.Visible == true then
+				return numberSpinner.Frame.AbsoluteSize.X + label.Parent.Parent.IconImage.AbsoluteSize.X
 			else
-				numberSpinner.TextSize += 1
+				return nextParent.AbsoluteSize.X
+			end
+		end
+		local function getNumberSpinnerXSize()
+			return numberSpinner.Frame.AbsoluteSize.X
+		end
+
+		local function adjustSize()
+			local totalDigitXSize, numOfDigits = getSpinnerSizeAndDigitCount()
+			if numOfDigits < 18 then
+				self:setLabel(numberSpinner.Value)
 			end
 
-			NumberSpinnerXSize = getNumberSpinnerXSize()
-			totalDigitXSize, numOfDigits = getSpinnerSizeAndDigitCount()
-		end
+			local NumberSpinnerXSize = getNumberSpinnerXSize()
 
-		local labelParentContainerXSize = getLabelParentContainerXSize()
-		while totalDigitXSize > labelParentContainerXSize and self.isDestroyed ~= true do
-			task.wait(0.05)
-			if numOfDigits < maxDigits and numOfDigits > minDigits then
-				numberSpinner.TextSize = label.TextSize
-				break
-			else
-				numberSpinner.TextSize -= 1
+			while totalDigitXSize < NumberSpinnerXSize and self.isDestroyed ~= true do
+				task.wait(0.05)
+				if numOfDigits > minDigits and numOfDigits < maxDigits then
+					numberSpinner.TextSize = label.TextSize
+					break
+				else
+					numberSpinner.TextSize += 1
+				end
+
+				NumberSpinnerXSize = getNumberSpinnerXSize()
+				totalDigitXSize, numOfDigits = getSpinnerSizeAndDigitCount()
 			end
 
-			labelParentContainerXSize = getLabelParentContainerXSize()
-			totalDigitXSize, numOfDigits = getSpinnerSizeAndDigitCount()
+			local labelParentContainerXSize = getLabelParentContainerXSize()
+			while totalDigitXSize > labelParentContainerXSize and self.isDestroyed ~= true do
+				task.wait(0.05)
+				if numOfDigits < maxDigits and numOfDigits > minDigits then
+					numberSpinner.TextSize = label.TextSize
+					break
+				else
+					numberSpinner.TextSize -= 1
+				end
+
+				labelParentContainerXSize = getLabelParentContainerXSize()
+				totalDigitXSize, numOfDigits = getSpinnerSizeAndDigitCount()
+			end
 		end
-	end
 
-	self:addToJanitor(numberSpinner.Frame.ChildAdded:Connect(adjustSize))
-	self:addToJanitor(numberSpinner.Frame.ChildRemoved:Connect(adjustSize))
-	self:addToJanitor(self.iconAdded:Connect(function()
-		task.wait(1)
-		adjustSize()
-	end))
+		self:addToJanitor(numberSpinner.Frame.ChildAdded:Connect(adjustSize))
+		self:addToJanitor(numberSpinner.Frame.ChildRemoved:Connect(adjustSize))
+		self:addToJanitor(self.iconAdded:Connect(function()
+			task.wait(1)
+			adjustSize()
+		end))
 
-	self:updateParent()
+		self:updateParent()
 
-	-- This corrects text to the size of a normal label
-	numberSpinner.Name = "LabelSpinner"
-	numberSpinner.Prefix = "$"
-	numberSpinner.Commas = true
-	numberSpinner.Decimals = 0
-	numberSpinner.Duration = 0.25
-	numberSpinner.Value = 10
-	task.wait(0.2)
-
+		-- This corrects text to the size of a normal label
+		numberSpinner.Name = "LabelSpinner"
+		numberSpinner.Prefix = "$"
+		numberSpinner.Commas = true
+		numberSpinner.Decimals = 0
+		numberSpinner.Duration = 0.25
+		numberSpinner.Value = 10
+		task.wait(0.2)
+		
+		if typeof(callback) == "function" then
+			callback()
+		end
+		
+	end)
 	return self
 end
 

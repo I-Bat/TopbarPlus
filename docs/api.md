@@ -209,6 +209,14 @@ icon:setTextSize(number, iconState)
 The size of the icon labels' text. The default value is ``16``.
 
 ----
+#### setTextColor
+{chainable} {toggleable}
+```lua
+icon:setTextColor(color, iconState)
+```
+The color of the icon labels' text.
+
+----
 #### setTextFont
 {chainable} {toggleable}
 ```lua
@@ -361,6 +369,14 @@ icon:setMenu(arrayOfIcons)
 Creates a horizontal menu based upon the given array of icons. Pass an empty table ``{}`` to remove the menu. See [menus] for more details.
 
 ----
+#### setFixedMenu
+{chainable}
+```lua
+icon:setFixedMenu(arrayOfIcons)
+```
+Creates a menu that is always selected and has its close button hidden. Pass an empty table ``{}`` to remove the menu. See [menus] for more details.
+
+----
 #### joinMenu
 {chainable}
 ```lua
@@ -380,7 +396,7 @@ Unparents an icon from a parentIcon if it belongs to a dropdown or menu.
 #### convertLabelToNumberSpinner
 {chainable}
 ```lua
-icon:convertLabelToNumberSpinner(numberSpinner)
+icon:convertLabelToNumberSpinner(numberSpinner, readyCallback)
 ```
 Accepts a [numberSpinner] and converts the icon's label into that spinner. For example:
 ```lua
@@ -391,18 +407,23 @@ Icon.new()
 	:call(function(pointsIcon)
 		local NumberSpinner = require(ReplicatedStorage.NumberSpinner)
 		local numberSpinner = NumberSpinner.new()
-		pointsIcon:convertLabelToNumberSpinner(numberSpinner)
-		numberSpinner.Name = "LabelSpinner"
-		numberSpinner.Prefix = "$"
-		numberSpinner.Commas = true
-		numberSpinner.Decimals = 0
-		numberSpinner.Duration = 0.25
-		while true do
-			numberSpinner.Value = math.random(1,1000)
-			task.wait(1)
-		end
+		pointsIcon:convertLabelToNumberSpinner(numberSpinner, function()
+			numberSpinner.Name = "LabelSpinner"
+			numberSpinner.Prefix = "$"
+			numberSpinner.Commas = true
+			numberSpinner.Decimals = 0
+			numberSpinner.Duration = 0.25
+			while true do
+				numberSpinner.Value = math.random(1,1000)
+				task.wait(1)
+			end
+		end)
 	end)
 ```
+
+!!! warning
+	Any changes to the NumberSpinner must be made within ``readyCallback`` otherwise you risk breaking the icon's appearance
+
 
 ----
 #### destroy

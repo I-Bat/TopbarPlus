@@ -69,9 +69,7 @@ type StaticFunctions = {
 	),
 }
 
-local MT = {} :: Methods
 type Methods = {
-	__index: typeof(MT),
 	
 	-- CLASS FUNCTIONS
 	setName: typeof(
@@ -94,7 +92,7 @@ type Methods = {
 		--[[
 			Updates the appearance of the icon.
 		]]
-		function(self: Icon, modifications: { Modification }): Icon
+		function(self: Icon, modifications: {Modification} | Modification): Icon
 			return nil :: any
 		end
 	),
@@ -227,6 +225,14 @@ type Methods = {
 			return nil :: any
 		end
 	),
+	setTextColor: typeof(
+		--[[
+			The color of the icon labels' text
+		]]
+		function(self: Icon, color: Color3, iconState: IconState?): Icon
+			return nil :: any
+		end
+	),
 	setTextFont: typeof(
 		--[[
 			Sets the labels FontFace.
@@ -312,7 +318,7 @@ type Methods = {
 			The first argument passed is the icon itself.
 			This is useful when needing to extend the behaviour of an icon while remaining in the chain.
 		]]
-		function(self: Icon, func: (self: Icon) -> (...any)): Icon
+		function(self: Icon, func: (self: Icon) -> (...any), ...: any): Icon
 			return nil :: any
 		end
 	),
@@ -411,6 +417,15 @@ type Methods = {
 			return nil :: any
 		end
 	),
+	setFixedMenu: typeof(
+		--[[
+			Creates a menu that is always selected and has it's close button hidden.
+			Pass an empty table <code>{}</code> to remove the menu.
+		]]
+		function(self: Icon, icons: { Icon }): Icon
+			return nil :: any
+		end
+	),
 	joinMenu: typeof(
 		--[[
 			Joins the menu of <code>parentIcon</code>.
@@ -432,7 +447,7 @@ type Methods = {
 		--[[
 			Unparents an icon from a parentIcon if it belongs to a dropdown or menu.
 		]]
-		function(self: Icon, numberSpinner: any): Icon
+		function(self: Icon, numberSpinner: any, func: (...any) -> (...any), ...: any): Icon
 			return nil :: any
 		end
 	),
@@ -463,7 +478,7 @@ type Fields = {
 	notified: Signal,
 }
 
-export type Icon = typeof(setmetatable({} :: Fields, MT))
+export type Icon = Methods & StaticFunctions --typeof(setmetatable({} :: Fields, MT))
 
 export type StaticIcon = {
 	new: typeof(
@@ -471,7 +486,7 @@ export type StaticIcon = {
 			Constructs an empty <code>32x32</code> icon on the topbar.
 		]]
 		function(): Icon
-			return nil :: any
+			return (nil :: any) :: Icon
 		end
 	),
 } & StaticFunctions
